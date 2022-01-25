@@ -1,6 +1,7 @@
-# MLAFE
-## Meta-Learning Based Automated Feature Engineering
+# MACFE
+## Meta-learning and Causality Based Feature Engineering
 
-**Alpha Version **
-
-For Paper results go to `/V2` and run `python .\run.py`
+### Instructions
+Original datasets to transform should be on `datasets_input/` folder
+To make use of MACFE in a GridSearch fashion, run the file `run.py`
+Output datasets transformed are on `datasets_output/` folder
