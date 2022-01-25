@@ -11,7 +11,7 @@ import os
 import sys
 import time
 from datetime import datetime
-from transform import transform_unary, transform_binary
+from transform import transform_unary, transform_binary, transform_scaler
 warnings.filterwarnings("ignore")
  
 from transform import preprocess_dataset
@@ -35,7 +35,15 @@ def get_TRMs():
             np.append( TRM_binary_set[i]['encoding'].ravel(), TRM_binary_set[i]['top_t_index']))
     TRM_binary_dataset = np.array(TRM_binary_dataset)
 
-    return TRM_dataset, TRM_binary_dataset
+    with open('data/TRM_scaler_set.pkl', 'rb') as f:
+        TRM_scaler_set = pickle.load(f)
+    TRM_scaler_dataset = list()
+    for i in range(len(TRM_scaler_set)):
+        TRM_scaler_dataset.append(
+            np.append( TRM_scaler_set[i]['encoding'].ravel(), TRM_scaler_set[i]['top_t_index']))
+    TRM_scaler_dataset = np.array(TRM_scaler_dataset)
+
+    return TRM_dataset, TRM_binary_dataset, TRM_scaler_dataset
 
 def save_results_to_file(results, f1, acc, auc):
     scores =[
@@ -71,30 +79,45 @@ def save_results_to_file(results, f1, acc, auc):
     with open(f"results.csv", "ab+") as f:
         np.savetxt(f, a.reshape(1, a.shape[0]), delimiter=',', fmt='%s', newline = "\n")
 
-def _feature_construction(df, TRM_dataset, TRM_binary_dataset):
+def _feature_construction_step(df, TRM_dataset, TRM_binary_dataset):
     X, y = preprocess_dataset(df)
     _column_names = df.columns.tolist()[:-1].copy()
 
     X_new_unary, _column_names_unary = transform_unary(X.values, y, _column_names, TRM_dataset)
     X_new_binary, _column_names_binary = transform_binary(X.values, y, _column_names, TRM_binary_dataset)
+    
+    # New DF with novel features
+    df_e = df.copy()
+    df_e = df_e.drop(['class'], axis = 1)
 
-    df_unary = pd.DataFrame(X_new_unary, columns = _column_names_unary)
-    df_binary = pd.DataFrame(X_new_binary, columns = _column_names_binary)
-    df_e = pd.concat([df_unary, df_binary], axis=1)
+    if (X_new_unary is not None):
+        df_unary = pd.DataFrame(X_new_unary, columns = _column_names_unary)
+        df_e = pd.concat([df_e, df_unary], axis=1)
+
+    if (X_new_binary is not None):
+        df_binary = pd.DataFrame(X_new_binary, columns = _column_names_binary)
+        df_e = pd.concat([df_e, df_binary], axis=1)
+
+    df_e['class'] = y
+
     return df_e 
 
 def feature_constuction(df_original, d_list):
     df_engineered_list = []
     print("Construction...")
-    for d in d_list:
-        df_engineered = df_original.copy(deep=True)
-        for _ in range(1, d + 1):
-            df_engineered = _feature_construction(df_engineered, TRM_dataset, TRM_binary_dataset)
+    df_engineered = df_original.copy(deep=True)
 
+    max_d = max(d_list)
+
+    for d_i in range(1, max_d + 1):
+        df_engineered = _feature_construction_step(df_engineered, TRM_dataset, TRM_binary_dataset)
         # Drop Original Features from engineered ones
-        df_engineered = df_engineered.drop(df_original.columns[:-1], axis = 1)
-        df_engineered_list.append(df_engineered)
-        print(f'd:{d}, Dim:{df_engineered.shape[1]} ')
+        df_engineered_d = df_engineered.drop(df_original.columns, axis = 1)
+
+        if (d_i in d_list):
+            print(f"d:{d_i} done.")
+            # Add df to the testing list if current d in in d_list
+            df_engineered_list.append(df_engineered_d)
 
     return df_engineered_list
 
@@ -116,7 +139,7 @@ def feature_selection(df, s_list):
 
     # List to save features for each "s"
     df_selected_list = []
-
+    
     for threshold in s_list:
         # Select top (1 - threshold)% 
         _threshold = np.quantile(dag.feature_importances_[0], (1.0 - threshold))
@@ -129,15 +152,30 @@ def feature_selection(df, s_list):
         # Create new selected DataFrame
         df_e = pd.DataFrame(X_selected)
         df_e.columns = _column_names
+        df_e['class'] = y
         df_selected_list.append(df_e)
-        print(f's:{threshold}, Dim:{df_e.shape[1]}')
-
+        print(f's:{threshold}, Dim:{df_e.shape[1] - 1}')
 
     return df_selected_list
 
+def feature_scaler(df):
+    X = df.drop(['class'], axis = 1)
+    y = df['class']
+
+    column_names = X.columns.tolist().copy()
+
+    df_scaled = transform_scaler(
+        X.values,
+        y.values,
+        column_names,
+        TRM_scaler)
+    return df_scaled
+
+
 def model_evaluation(df, method, dataset_file, s, d):
     # Run models
-    f1_score, acc_score, auc_score = run_models(df.iloc[:, :-1], df.iloc[:, -1])
+    X, y = df.drop(['class'], axis = 1).values, df['class'].values
+    f1_score, acc_score, auc_score = run_models(X, y)
     # print(f"Mean F1 score: {np.round(np.mean(f1_score.values), 2)}")
     save_results_to_file(
         [dataset_file,method,s,d, df.shape[1] - 1],
@@ -169,7 +207,7 @@ if __name__ == "__main__":
     s_list, d_list = args.Selection_list, args.Depth_list
 
     # Read TRMs (Unary and Binary)
-    TRM_dataset, TRM_binary_dataset = get_TRMs()
+    TRM_dataset, TRM_binary_dataset, TRM_scaler = get_TRMs()
 
     # Iterate though datasets
     datasets_directory = 'datasets_input'
@@ -193,24 +231,28 @@ if __name__ == "__main__":
             f1_score, acc_score, auc_score
         )
 
+
         # Selection
         df_selected_list = feature_selection(df_original, s_list)
 
-        # Construction
-        df_engineered_list = feature_constuction(df_original, d_list)
+        for s, df_selected in zip(s_list, df_selected_list):
+            # Construction
+            df_engineered_list = feature_constuction(df_selected, d_list)
 
-        # Evaluation
-        print("Evaluation...")
-        for s_index, s_value in enumerate(s_list):      # iterate through "selection" param
-            for d_index, d_value in enumerate(d_list):  # iterate through "depth" param
-
+            # Evaluation
+            print("Evaluation...")
+            for d, df_engineered in zip(d_list, df_engineered_list):
                 # Concatenate Selected and Engineered features
-                df = pd.concat([df_selected_list[s_index], df_engineered_list[d_index]], axis = 1)
-                df['class'] = df_original.iloc[:,-1]
-                print(f"MACFE with s:{s_value}, d: {d_value} - T. Dim: {df.shape[1] - 1}")
+                df = pd.concat([df_selected, df_engineered], axis = 1)
+
+                # Scale Features
+                df = feature_scaler(df)
 
                 # Run models
-                model_evaluation(df, 'MACFE_sel+engin(full)', dataset_file, s_value, d_value)
+                model_evaluation(df, 'MACFE_', dataset_file, s, d)
+
+                print(f"DONE!! MACFE with s:{s}, d: {d} - Dim: {df.shape[1] - 1}")
+
 
     end = time.time()
     print("\MACFE Elapsed time: ", end - start)

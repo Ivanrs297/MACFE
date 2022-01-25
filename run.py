@@ -8,7 +8,7 @@ print(f"[{datetime.now()}]")
 start = time.time()
 
 # Depth Iterations
-d_list  = [1,2,3,4]  
+d_list  = [1, 2, 3, 4]  
 d_list = [str(d) for d in d_list]
 d_list = " ".join(d_list)
 
@@ -19,8 +19,7 @@ s_list = " ".join(s_list)
 
 current_abs_path = os.path.abspath(os.getcwd())
 
-# subprocess.call(f'python {current_abs_path}\code\experiments.py -d_l {d_list} -s_l {s_list}',shell=True)
-subprocess.call(f'python {current_abs_path}\code\experiments_eng(sel).py -d_l {d_list} -s_l {s_list}',shell=True)
+subprocess.call(f'python {current_abs_path}\code\experiments.py -d_l {d_list} -s_l {s_list}',shell=True)
 
 end = time.time()-start
 print(f"[{datetime.now()}]")
