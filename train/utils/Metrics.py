@@ -1,2 +1,0 @@
-def si():
-    print("si")
