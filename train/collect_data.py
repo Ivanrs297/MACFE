@@ -6,7 +6,7 @@ warnings.filterwarnings("ignore")
 
 if __name__ == "__main__":
 
-    train_dataset_set = download_datasets(10)
+    train_dataset_set = download_datasets(200)
 
     metafeature_set_datasets = [get_metafeatures_dataset(ds) for ds in train_dataset_set]
     metafeature_set_datasets = [ds for ds in metafeature_set_datasets if ds is not None]

@@ -3,6 +3,10 @@ from utils import Binary_transformations as Binary_transformations
 from utils import get_MIC_score
 import numpy as np
 import pickle
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.ensemble import IsolationForest
+from scipy.stats import shapiro
 
 def evaluation_performance(index_f, t_f, X, y, task = 'classification' ):    
     original = get_MIC_score(X[:, index_f], y)
@@ -126,6 +130,68 @@ def fit_binary_transformations(train_dataset_set, metafeature_set_datasets, hist
 
     return np.array(TRM_binary_set)
 
+def _test_normal_distribution(X, threshold = 0.5):
+    # Count of normal distributions in data
+    count = 0
+    cols = len(X[0])
+    
+    # Iterate colums
+    for i in range(cols):
+        # If p-value > 0.05 then is normal
+        if shapiro(X[:,i])[1] > 0.05:
+            count += 1
+            
+    if count/cols > threshold:
+        return True
+    else: 
+        return False
+
+def _test_outliers_for_robust_scaler(X, threshold = 0.11):
+    iso = IsolationForest(random_state = 42, n_jobs = 4, contamination = 0.1)
+    outliers = iso.fit_predict(X)
+    count_outliers = np.count_nonzero(outliers == -1)
+    if (count_outliers / len(X)) >= threshold:
+        return True
+    else:
+        return False
+
+def scale_features(X):
+    if _test_normal_distribution(X):
+        return StandardScaler().fit_transform(X)
+    else:
+        return MinMaxScaler().fit_transform(X)
+
+
+def fit_scaler_transformations(train_dataset_set, metafeature_set_datasets):
+    # Scaler Recommendation Matrix
+    TRM_scalers = []
+        
+    # for each dataset
+    for ds_i, ds in enumerate(train_dataset_set):
+        current_dataset_metafeatures = metafeature_set_datasets[ds_i]
+        print("Working on Dataset: ", ds['dataset_name'])      
+
+        # Get Features and targets from dataset
+        X, y = ds['X'], ds['y']
+        
+        if (_test_outliers_for_robust_scaler(X)):
+            scaler_index = 0
+            
+        elif (_test_normal_distribution(X)):
+            scaler_index = 1
+        else:
+            scaler_index = 2
+
+        # TRM_scalers.append({
+        #     'encoding': current_dataset_metafeatures,
+        #     'top_t_index': scaler_index
+        # })
+
+        TRM_scalers.append(np.append(current_dataset_metafeatures.ravel(), scaler_index))
+            
+    # SRM.to_csv(f'./Exported_data/Datasets_scores_scalers/dataset_scalers.csv', sep=",", index = False)
+    return TRM_scalers
+
 if __name__ == "__main__":
 
     with open('../data/train_dataset_set.pkl', 'rb') as f:
@@ -142,10 +208,15 @@ if __name__ == "__main__":
     #     # pickle.dump(TRM_set, f)
     #     np.save(f, TRM_set)
 
-    TRM_binary_set = fit_binary_transformations(train_dataset_set, metafeature_set_datasets, histogram_dataset)
-    with open('../data/TRM_binary_set.npy', 'wb') as f:
-        # pickle.dump(TRM_binary_set, f)
-        np.save(f, TRM_binary_set)
+    # TRM_binary_set = fit_binary_transformations(train_dataset_set, metafeature_set_datasets, histogram_dataset)
+    # with open('../data/TRM_binary_set.npy', 'wb') as f:
+    #     # pickle.dump(TRM_binary_set, f)
+    #     np.save(f, TRM_binary_set)
+
+    TRM_scaler_set = fit_scaler_transformations(train_dataset_set, metafeature_set_datasets)
+    with open('../data/TRM_scaler_set.npy', 'wb') as f:
+        # pickle.dump(TRM_scaler_set, f)
+        np.save(f, TRM_scaler_set)
 
 
 

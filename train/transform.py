@@ -65,7 +65,7 @@ def transform_unary(X, y, column_names, TRM_dataset):
         ds_encodings = np.nan_to_num(ds_encodings)
 
     # Get 1 neighbor for each feature
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='brute',metric='cosine', n_jobs = -1).fit(TRM_dataset[:, :-1])
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto',metric='cosine', n_jobs = -1).fit(TRM_dataset[:, :-1])
     indices = nbrs.kneighbors(ds_encodings, return_distance = False)
 
     # Iterate in t indices
@@ -104,7 +104,7 @@ def transform_binary(X, y, column_names, TRM_binary_dataset):
     new_column_names = []
     new_features = []
 
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='brute',metric='cosine', n_jobs = -1).fit(TRM_binary_dataset[:, :-1])
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto',metric='cosine', n_jobs = -1).fit(TRM_binary_dataset[:, :-1])
 
     # Get the encodings of all the features in dataset
     mf, hist = get_metafeatures_dataset(ds), get_histogram(ds)
@@ -162,11 +162,12 @@ def transform_scaler(X, y, column_names, TRM_scaler):
         ds_encoding = np.nan_to_num(ds_encoding)
 
     # get similar dataset
-    nbrs = NearestNeighbors(n_neighbors=1, algorithm='brute',metric='cosine', n_jobs = -1).fit(TRM_scaler[:, :-1])
+    nbrs = NearestNeighbors(n_neighbors=1, algorithm='auto',metric='cosine', n_jobs = -1).fit(TRM_scaler[:, :-1])
     neigh_index = nbrs.kneighbors([ds_encoding], return_distance = False)[0]
 
     # get scaler index
     t_index = int(TRM_scaler[neigh_index,-1])
+    # t_index = 2
 
     # apply scaling
     scaler = scalers[t_index]()

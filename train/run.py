@@ -13,7 +13,7 @@ d_list = [str(d) for d in d_list]
 d_list = " ".join(d_list)
 
 # Selection Threshold
-s_list  = [.2, .4, .6, .8, 1]   # top 20%, top 40%, ...
+s_list  = [.25, .50, .75, 1]   # top 20%, top 40%, ...
 s_list = [str(d) for d in s_list]
 s_list = " ".join(s_list)
 

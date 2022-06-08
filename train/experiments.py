@@ -49,8 +49,11 @@ def get_TRMs():
     #         np.append( TRM_scaler_set[i]['encoding'].ravel(), TRM_scaler_set[i]['top_t_index']))
     # TRM_scaler_dataset = np.array(TRM_scaler_dataset)
 
-    # return TRM_dataset, TRM_binary_dataset, TRM_scaler_dataset
-    return TRM_dataset, TRM_binary_dataset
+    with open('../data/TRM_scaler_set.npy', 'rb') as f:
+        TRM_scaler_dataset = np.load(f)
+
+    return TRM_dataset, TRM_binary_dataset, TRM_scaler_dataset
+    # return TRM_dataset, TRM_binary_dataset
 
 def save_results_to_file(results, f1, acc, auc):
     scores =[
@@ -176,6 +179,7 @@ def feature_scaler(df):
         y.values,
         column_names,
         TRM_scaler)
+        # None)
     return df_scaled
 
 
@@ -214,8 +218,8 @@ if __name__ == "__main__":
     s_list, d_list = args.Selection_list, args.Depth_list
 
     # Read TRMs (Unary and Binary)
-    # TRM_dataset, TRM_binary_dataset, TRM_scaler = get_TRMs()
-    TRM_dataset, TRM_binary_dataset = get_TRMs()
+    TRM_dataset, TRM_binary_dataset, TRM_scaler = get_TRMs()
+    # TRM_dataset, TRM_binary_dataset = get_TRMs()
 
     # Iterate though datasets
     datasets_directory = '../datasets_input'
@@ -254,7 +258,7 @@ if __name__ == "__main__":
                 df = pd.concat([df_selected, df_engineered], axis = 1)
 
                 # Scale Features
-                # df = feature_scaler(df)
+                df = feature_scaler(df)
 
                 # Run models
                 model_evaluation(df, 'MACFE_', dataset_file, s, d)
