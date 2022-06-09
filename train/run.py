@@ -8,7 +8,7 @@ print(f"[{datetime.now()}]")
 start = time.time()
 
 # Depth Iterations
-d_list  = [1, 2, 3, 4]  
+d_list  = [1, 2, 3]  
 d_list = [str(d) for d in d_list]
 d_list = " ".join(d_list)
 
